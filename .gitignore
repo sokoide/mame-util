@@ -1,0 +1,7 @@
+# ダウンロードしたROM
+*.zip
+
+# 生HTML（m.289.tsv に抽出済み）
+m.289.html
+
+__pycache__/
