@@ -4,4 +4,7 @@
 # 生HTML（m.289.tsv に抽出済み）
 m.289.html
 
+# make listfull で再生成可能
+mame.listfull
+
 __pycache__/
