@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""dl.tsv に書かれた zip を Safari 経由でダウンロードし、カレントディレクトリに保存する。
+"""m.289.tsv からglobパターンに一致する zip を Safari 経由でダウンロードし、カレントディレクトリに保存する。
 
-dl.tsv は m.289.tsv のサブセット（file name, URL, size の TSV）。
 Safari のダウンロード先はデフォルトの ~/Downloads を前提とし、
 完了済みファイルを検知してカレントディレクトリへ移動する。
 
 使い方:
-    python3 download.py                 # dl.tsv を 6 並列で処理
-    python3 download.py -p 3 my.tsv     # 3 並列、別のTSVを指定
+    python3 download.py --pattern 'xevious*'          # xevious*.zip を 6 並列で処理
+    python3 download.py -p 3 --pattern '1942*'        # 3 並列
+    python3 download.py --names xevious xeviousa      # ROM名を列挙
 
 注意:
 - 初回のみ Safari が「"archive.org" からのダウンロードを許可しますか?」と
-  聞いてくるので、手動で「許可」すること（サイト単位で1回だけ）。
+  聞いてくることがあるので、手動で「許可」すること。
 - 再実行すると、カレントディレクトリに既にあるファイルはスキップされる。
 """
 
 import argparse
+import fnmatch
 import os
 import re
 import subprocess
@@ -175,21 +176,41 @@ def download_one(name: str, url: str, size: str, downloads: Path, progress: Prog
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Safari経由でdl.tsvのzipをダウンロードしカレントディレクトリに保存する")
-    ap.add_argument("tsv", nargs="?", default="dl.tsv", help="入力TSV (既定: dl.tsv)")
+    ap = argparse.ArgumentParser(
+        description="Safari経由でm.289.tsvから指定したzipをダウンロードしカレントディレクトリに保存する")
+    group = ap.add_mutually_exclusive_group(required=True)
+    group.add_argument("--pattern", help="ファイル名のglobパターン (例: 'xevious*')")
+    group.add_argument("--names", nargs="+", metavar="NAME",
+                       help="ROM名のリスト (make search の結果など)")
     ap.add_argument("-p", "--parallel", type=int, default=6, help="並列数 (既定: 6)")
+    ap.add_argument("--tsv", default="m.289.tsv", help="インデックスTSV (既定: m.289.tsv)")
     ap.add_argument("--downloads", default=os.path.expanduser("~/Downloads"),
                     help="Safariのダウンロード先 (既定: ~/Downloads)")
     args = ap.parse_args()
 
     if not os.path.isfile(args.tsv):
-        sys.exit(f"TSVがありません: {args.tsv}\n例: awk -F'\\t' 'NR<=6' m.289.tsv > dl.tsv")
+        sys.exit(f"TSVがありません: {args.tsv}")
     downloads = Path(args.downloads)
     if not downloads.is_dir():
         sys.exit(f"ダウンロード先がありません: {downloads}")
 
-    entries = load_tsv(args.tsv)
-    print(f"{len(entries)} 件を {args.parallel} 並列で処理します")
+    all_entries = load_tsv(args.tsv)
+    missing = []
+    if args.pattern:
+        entries = [e for e in all_entries if fnmatch.fnmatch(e[0], args.pattern)]
+        if not entries:
+            sys.exit(f"パターンに一致するファイルがありません: {args.pattern}")
+        print(f"パターン {args.pattern!r} に {len(entries)} 件一致。{args.parallel} 並列で処理します")
+    else:
+        wanted = set(args.names)
+        # インデックスは "xevious.zip"、ROM名は "xevious" → 拡張子を除いて比較
+        entries = [e for e in all_entries if os.path.splitext(e[0])[0] in wanted]
+        missing = sorted(wanted - {os.path.splitext(e[0])[0] for e in entries})
+        if missing:
+            print(f"[warn] インデックス(m.289.tsv)にないROM: {' '.join(missing)}", file=sys.stderr)
+        if not entries:
+            sys.exit("指定されたROMはすべてインデックスにありません")
+        print(f"{len(entries)}/{len(wanted)} 件がインデックスに一致。{args.parallel} 並列で処理します")
 
     progress = Progress(len(entries))
     progress.start()
