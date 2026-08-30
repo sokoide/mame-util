@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""m.289.tsv からglobパターンに一致する zip を Safari 経由でダウンロードし、カレントディレクトリに保存する。
+"""m.289.tsv からglobパターンに一致する zip を Safari 経由でダウンロードし、保存先ディレクトリに移動する。
 
 Safari のダウンロード先はデフォルトの ~/Downloads を前提とし、
-完了済みファイルを検知してカレントディレクトリへ移動する。
+完了済みファイルを検知して保存先ディレクトリへ移動する。
+保存先は環境変数 MAME_UTIL_ROM_DIR または --dest で指定できる（既定: カレントディレクトリ）。
 
 使い方:
     python3 download.py --pattern 'xevious*'          # xevious*.zip を 6 並列で処理
@@ -12,7 +13,7 @@ Safari のダウンロード先はデフォルトの ~/Downloads を前提とし
 注意:
 - 初回のみ Safari が「"archive.org" からのダウンロードを許可しますか?」と
   聞いてくることがあるので、手動で「許可」すること。
-- 再実行すると、カレントディレクトリに既にあるファイルはスキップされる。
+- 再実行すると、保存先に既にあるファイルはスキップされる。
 """
 
 import argparse
@@ -153,8 +154,8 @@ class Progress:
                 self.done += 1
 
 
-def download_one(name: str, url: str, size: str, downloads: Path, progress: Progress) -> str:
-    dest = Path(name)
+def download_one(name: str, url: str, size: str, downloads: Path, dest_dir: Path, progress: Progress) -> str:
+    dest = dest_dir / name
     if dest.exists():
         return "skip (exists)"
     progress.begin_item()
@@ -186,6 +187,8 @@ def main():
     ap.add_argument("--tsv", default="m.289.tsv", help="インデックスTSV (既定: m.289.tsv)")
     ap.add_argument("--downloads", default=os.path.expanduser("~/Downloads"),
                     help="Safariのダウンロード先 (既定: ~/Downloads)")
+    ap.add_argument("--dest", default=os.environ.get("MAME_UTIL_ROM_DIR", "."),
+                    help="保存先ディレクトリ (既定: 環境変数 MAME_UTIL_ROM_DIR、なければカレントディレクトリ)")
     args = ap.parse_args()
 
     if not os.path.isfile(args.tsv):
@@ -193,6 +196,8 @@ def main():
     downloads = Path(args.downloads)
     if not downloads.is_dir():
         sys.exit(f"ダウンロード先がありません: {downloads}")
+    dest_dir = Path(args.dest)
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
     all_entries = load_tsv(args.tsv)
     missing = []
@@ -213,7 +218,7 @@ def main():
         print(f"{len(entries)}/{len(wanted)} 件がインデックスに一致。{args.parallel} 並列で処理します")
 
     # 既にローカルにあるものはダウンロードせず、事前に除外する
-    todo = [e for e in entries if not Path(e[0]).exists()]
+    todo = [e for e in entries if not (dest_dir / e[0]).exists()]
     skipped = len(entries) - len(todo)
     if skipped:
         print(f"既に存在するためスキップ: {skipped} 件")
@@ -225,7 +230,7 @@ def main():
     progress.start()
     ok = fail = 0
     with ThreadPoolExecutor(max_workers=args.parallel) as pool:
-        futures = {pool.submit(download_one, n, u, s, downloads, progress): n for n, u, s in todo}
+        futures = {pool.submit(download_one, n, u, s, downloads, dest_dir, progress): n for n, u, s in todo}
         for fut in as_completed(futures):
             name = futures[fut]
             status = fut.result()

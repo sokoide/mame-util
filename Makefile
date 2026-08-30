@@ -1,5 +1,6 @@
 TSV ?= m.289.tsv
 PARALLEL ?= 6
+MAME_UTIL_ROM_DIR ?= .
 
 # mame.listfull から name を抽出するawk（search と download で共用）
 SEARCH_AWK = awk -v t="$(1)" 'BEGIN { t = tolower(t) } \
@@ -21,7 +22,7 @@ help:
 	@echo "  make rsync                         ダウンロード済みzipを外部ドライブへdry-run"
 	@echo "  make rsync-no-dryrun               実際にrsyncする"
 	@echo "  make listfull                      mame -listfull > mame.listfull を再生成"
-	@echo "変数: PARALLEL=$(PARALLEL)  TSV=$(TSV)"
+	@echo "変数: PARALLEL=$(PARALLEL)  TSV=$(TSV)  MAME_UTIL_ROM_DIR=$(MAME_UTIL_ROM_DIR) (zipの保存先ディレクトリ)"
 
 download:
 ifeq ($(TITLE)$(DL),)
@@ -35,17 +36,17 @@ endif
 	names=$$( $(call SEARCH_AWK,$(TITLE)) | cut -d, -f1 | tr '\n' ' ' ); \
 	test -n "$$names" || { echo '検索結果: 0件'; exit 1; }; \
 	echo "検索結果: $$names"; \
-	python3 download.py -p $(PARALLEL) --tsv $(TSV) --names $$names
+	python3 download.py -p $(PARALLEL) --tsv $(TSV) --dest $(MAME_UTIL_ROM_DIR) --names $$names
 endif
 ifneq ($(DL),)
-	python3 download.py -p $(PARALLEL) --tsv $(TSV) --pattern '$(DL)'
+	python3 download.py -p $(PARALLEL) --tsv $(TSV) --dest $(MAME_UTIL_ROM_DIR) --pattern '$(DL)'
 endif
 
 rsync:
-	rsync --dry-run -av --ignore-existing ./*.zip /Volumes/IO512GB/Emu/roms/mame
+	rsync --dry-run -av --ignore-existing $(MAME_UTIL_ROM_DIR)/*.zip /Volumes/IO512GB/Emu/roms/mame
 
 rsync-no-dryrun:
-	rsync -av --ignore-existing ./*.zip /Volumes/IO512GB/Emu/roms/mame
+	rsync -av --ignore-existing $(MAME_UTIL_ROM_DIR)/*.zip /Volumes/IO512GB/Emu/roms/mame
 
 search:
 	@test -n "$(TITLE)" || { echo 'usage: TITLE="galaxian 3" make search'; exit 1; }
