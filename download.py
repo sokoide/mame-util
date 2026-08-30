@@ -212,27 +212,33 @@ def main():
             sys.exit("指定されたROMはすべてインデックスにありません")
         print(f"{len(entries)}/{len(wanted)} 件がインデックスに一致。{args.parallel} 並列で処理します")
 
-    progress = Progress(len(entries))
+    # 既にローカルにあるものはダウンロードせず、事前に除外する
+    todo = [e for e in entries if not Path(e[0]).exists()]
+    skipped = len(entries) - len(todo)
+    if skipped:
+        print(f"既に存在するためスキップ: {skipped} 件")
+    if not todo:
+        print("新規にダウンロードするファイルはありません")
+        return
+
+    progress = Progress(len(todo))
     progress.start()
-    ok = skip = fail = 0
+    ok = fail = 0
     with ThreadPoolExecutor(max_workers=args.parallel) as pool:
-        futures = {pool.submit(download_one, n, u, s, downloads, progress): n for n, u, s in entries}
+        futures = {pool.submit(download_one, n, u, s, downloads, progress): n for n, u, s in todo}
         for fut in as_completed(futures):
             name = futures[fut]
             status = fut.result()
             if status.startswith("FAIL"):
                 fail += 1
                 mark = "✗"
-            elif status.startswith("skip"):
-                skip += 1
-                mark = "="
             else:
                 ok += 1
                 mark = "✓"
             print(f"{mark} {name}: {status}", flush=True)
     progress.finish()
 
-    print(f"完了: ok={ok} skip={skip} fail={fail}")
+    print(f"完了: ok={ok} skip={skipped} fail={fail}")
     sys.exit(1 if fail else 0)
 
 
