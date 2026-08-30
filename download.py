@@ -20,6 +20,7 @@ import argparse
 import fnmatch
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -164,7 +165,8 @@ def download_one(name: str, url: str, size: str, downloads: Path, dest_dir: Path
         try:
             open_in_safari(url)
             fetched = wait_and_fetch(name, downloads)
-            fetched.rename(dest.resolve())
+            # rename() はデバイスを跨ぐと Errno 18 になるため shutil.move を使う
+            shutil.move(str(fetched), dest.resolve())
             progress.end_item(True)
             return f"ok ({size})"
         except (subprocess.SubprocessError, TimeoutError, OSError) as e:
