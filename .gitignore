@@ -8,3 +8,6 @@ m.289.html
 mame.listfull
 
 __pycache__/
+
+# ダウンロードリスト（履歴から完全削除済み）
+dl.tsv
