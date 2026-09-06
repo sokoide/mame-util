@@ -9,6 +9,7 @@ Safari のダウンロード先はデフォルトの ~/Downloads を前提とし
     python3 download.py --pattern 'xevious*'          # xevious*.zip を 6 並列で処理
     python3 download.py -p 3 --pattern '1942*'        # 3 並列
     python3 download.py --names xevious xeviousa      # ROM名を列挙
+    python3 download.py --force --names xevious       # 保存済みでも再ダウンロード
 
 注意:
 - 初回のみ Safari が「"archive.org" からのダウンロードを許可しますか?」と
@@ -157,8 +158,6 @@ class Progress:
 
 def download_one(name: str, url: str, size: str, downloads: Path, dest_dir: Path, progress: Progress) -> str:
     dest = dest_dir / name
-    if dest.exists():
-        return "skip (exists)"
     progress.begin_item()
 
     for attempt in range(1, RETRIES + 1):
@@ -185,6 +184,8 @@ def main():
     group.add_argument("--pattern", help="ファイル名のglobパターン (例: 'xevious*')")
     group.add_argument("--names", nargs="+", metavar="NAME",
                        help="ROM名のリスト (make search の結果など)")
+    ap.add_argument("--force", action="store_true",
+                    help="保存先に同名ファイルがあっても再ダウンロードする")
     ap.add_argument("-p", "--parallel", type=int, default=6, help="並列数 (既定: 6)")
     ap.add_argument("--tsv", default="m.289.tsv", help="インデックスTSV (既定: m.289.tsv)")
     ap.add_argument("--downloads", default=os.path.expanduser("~/Downloads"),
@@ -195,6 +196,7 @@ def main():
 
     if not os.path.isfile(args.tsv):
         sys.exit(f"TSVがありません: {args.tsv}")
+    index_name = os.path.basename(args.tsv)
     downloads = Path(args.downloads)
     if not downloads.is_dir():
         sys.exit(f"ダウンロード先がありません: {downloads}")
@@ -214,14 +216,14 @@ def main():
         entries = [e for e in all_entries if os.path.splitext(e[0])[0] in wanted]
         missing = sorted(wanted - {os.path.splitext(e[0])[0] for e in entries})
         if missing:
-            print(f"[warn] インデックス(m.289.tsv)にないROM: {' '.join(missing)}", file=sys.stderr)
+            print(f"[warn] インデックス({index_name})にないROM: {' '.join(missing)}", file=sys.stderr)
         if not entries:
-            sys.exit("指定されたROMはすべてインデックスにありません")
-        print(f"{len(entries)}/{len(wanted)} 件がインデックスに一致。{args.parallel} 並列で処理します")
+            sys.exit(f"指定されたROMはすべて{index_name}にありません")
+        print(f"{len(entries)}/{len(wanted)} 件がインデックス({index_name})に一致。{args.parallel} 並列で処理します")
 
     # 既にローカルにあるものはダウンロードせず、事前に除外する
-    todo = [e for e in entries if not (dest_dir / e[0]).exists()]
-    skipped = len(entries) - len(todo)
+    todo = entries if args.force else [e for e in entries if not (dest_dir / e[0]).exists()]
+    skipped = 0 if args.force else len(entries) - len(todo)
     if skipped:
         print(f"既に存在するためスキップ: {skipped} 件")
     if not todo:
