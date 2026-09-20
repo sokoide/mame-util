@@ -58,9 +58,15 @@ def load_tsv(path: str):
     return entries
 
 
+def safari_download_url(url: str) -> str:
+    """Archive.orgのダウンロードURLをSafari向けに調整する。"""
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}download=1"
+
+
 def open_in_safari(url: str) -> None:
     subprocess.run(
-        ["osascript", "-e", f'tell application "Safari" to open location "{url}"'],
+        ["osascript", "-e", f'tell application "Safari" to open location "{safari_download_url(url)}"'],
         check=True, capture_output=True, timeout=30,
     )
 
