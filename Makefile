@@ -113,7 +113,8 @@ help:
 	@echo '               メタ文字なし (例: "harry") は部分一致と同じ結果。構文エラー (例: "[hharry") は部分一致にフォールバック'
 	@echo '  DL=1 TITLE="xevious" make          search の結果のROMをSafariで6並列DL'
 	@echo '  DL=1 FILE="harry" make              ファイル名検索の結果をSafariで6並列DL'
-	@echo '  DL=1 FILE="nspirit" MERGED=1 make   merged版TSVからSafariでROMをDL'
+	@echo '  DL=1 FILE="nspirit" MERGED=1 make   m.289.merged.tsvのURLからSafariでROMをDL'
+	@echo '       TSV生成元URL: https://archive.org/download/mame-roms-merged_/MAME%20ROMs%20(merged)/'
 	@echo '  DL=1 FILE="nspirit" FORCE=1 make    保存済みzipも再ダウンロード'
 	@echo "  make rsync                         ダウンロード済みzipを外部ドライブへdry-run"
 	@echo "  make rsync-no-dryrun               実際にrsyncする"
